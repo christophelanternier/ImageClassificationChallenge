@@ -14,9 +14,6 @@ n_classes = len(classes)
 # divide data in train and test for validation
 N_train = 2 * N / 3
 N_test = N - N_train
-N_train = 100
-N = 150
-N
 
 train_images = Xtr[:N_train]
 train_labels = Ytr[:N_train]
