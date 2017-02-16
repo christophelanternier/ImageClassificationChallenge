@@ -1,5 +1,6 @@
 import cvxopt
 import numpy as np
+import pandas as pd
 
 def sigma(u):
     return 1.0 / (1 + np.exp(-u))
@@ -80,3 +81,43 @@ def predict(alpha, f_values, x):
         f_x += alpha[i] * f_values[i].dot(x)
 
     return f_x
+
+def train_one_versus_all_logistic_classifier(features, labels):
+    N = len(labels)
+    n_labels = len(set(labels))
+    alphas = np.zeros((n_labels, N))
+    for label in range(n_labels):
+        one_versus_all_labels = np.zeros(N)
+        for i in range(N):
+            if labels[i] == label:
+                one_versus_all_labels[i] = 1
+            else:
+                one_versus_all_labels[i] = -1
+
+        alphas[label, :] = logistic_regression_classifier(features, one_versus_all_labels)
+        print "classifier for label ", label, " done"
+    return alphas
+
+def test_one_versus_all_logistic_classifier(alphas, train_features, test_features, n_labels, test_labels=None, filename='../data/Yte.csv'):
+    N = test_features.shape[0]
+    predicted_labels = np.zeros(N, dtype=np.int)
+
+    for i in range(N):
+        test_feature = test_features[i,:]
+        max_probability = 0
+        for label in range(n_labels):
+            p_label = sigma(predict(alphas[label,:], train_features, test_feature))
+            if (p_label > max_probability):
+                predicted_labels[i] = label
+                max_probability = p_label
+
+    if test_labels is None:
+        print "writing result to file ", filename
+        DF = pd.DataFrame(data=predicted_labels, colmuns=['Prediction'])
+        DF.to_csv(filename, index=True, index_label='Id', sep=',')
+    else:
+        error_rate = 0
+        for c in predicted_labels:
+            if (c != test_labels[i]):
+                error_rate += 1.0
+        print "error rate on test : ", error_rate / N
