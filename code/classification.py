@@ -82,7 +82,7 @@ def predict(alpha, f_values, x):
 
     return f_x
 
-def train_one_versus_all_logistic_classifier(features, labels):
+def train_one_versus_all_logistic_classifier(features, labels, classifier = 'LR'):
     N = len(labels)
     n_labels = len(set(labels))
     alphas = np.zeros((n_labels, N))
@@ -93,8 +93,10 @@ def train_one_versus_all_logistic_classifier(features, labels):
                 one_versus_all_labels[i] = 1
             else:
                 one_versus_all_labels[i] = -1
-
-        alphas[label, :] = logistic_regression_classifier(features, one_versus_all_labels)
+        if classifier == 'LR':
+            alphas[label, :] = logistic_regression_classifier(features, one_versus_all_labels)
+        elif classifier == 'SVM':
+            alphas[label, :] = SVM_classifier(features, one_versus_all_labels)
         print "classifier for label ", label, " done"
     return alphas
 
@@ -121,3 +123,131 @@ def test_one_versus_all_logistic_classifier(alphas, train_features, test_feature
             if (c != test_labels[i]):
                 error_rate += 1.0
         print "error rate on test : ", error_rate / N
+
+###########################
+#ALL SVM RELATED FUNCTIONS#
+###########################
+def dual_objective_function(y,X,x):
+    return sum(x)-0.5*np.linalg.norm(sum(np.multiply(x,np.multiply(y,X)).T))**2
+
+def transform_svm_dual( C, X, y ):
+
+    (d, n) = X.shape
+    M = (y*X);
+    Q = M.T.dot(M)
+    p = -np.ones(n)
+    b = np.zeros(2*n)
+    b[:n] = C
+    A = np.zeros((2*n , n))
+    A[:n , :n] = np.eye(n)
+    A[n:, :n] = -np.eye(n)
+
+    return Q,p,A,b
+
+def transform_svm_primal(C,X,y):
+
+    [d, n] = X.shape
+
+    Q = np.zeros((d+n, d+n))
+    p = C*np.ones(d+n)
+    for k in range(d):
+        Q[k,k]=1
+        p[k] = 0
+
+    A = np.zeros((2*n, d+n))
+    A[:n,:d] = np.multiply(y,X).T
+    A[:n, d:] = np.eye(n)
+    A[n:, d:] = np.eye(n)
+    A=-A
+
+    b = np.zeros(2*n)
+    b[:n]=-np.ones(n)
+
+    return Q, p, A, b
+
+def f1(x, t):
+    B=0
+    for i in range(A.shape[0]):
+        B = B -np.log(b[i]-A[i,:].dot(x))
+    return t*0.5*(x.T).dot(Q.dot(x))+t*(p).dot(x)+B
+
+def grad_f1(x, t):
+    c = np.zeros(A.shape[0]);
+    for i in range(len(c)):
+        c[i] = 1/(b[i]-A[i,:].dot(x))
+
+    return t*Q.T.dot(x) + t*p + A.T.dot(c)
+
+
+def hess_f1(x, t):
+
+    c = np.zeros(A.shape[0]);
+    for i in range(len(c)):
+        c[i] = 1/(b[i]-A[i,:].dot(x))
+
+    M1 = np.zeros((A.shape[1], A.shape[1]))
+    for i in range(len(c)):
+        M1 = M1 + A[[i], :].T.dot(A[[i], :])/(b[i]-A[i,:].dot(x))
+
+    return t*Q + M1
+
+
+def Newton(t,x, grad_f1, hess_f1, f1):
+    beta = 0.5
+    alpha = 0.25
+
+    delta_x = -np.linalg.inv(hess_f1(x,t)).dot(grad_f1(x, t))
+    lambda1 = np.sqrt(grad_f1(x, t).T.dot(np.linalg.inv(hess_f1(x,t)).dot(grad_f1(x, t))))
+
+    #Backtracking line search
+    step = 1
+
+    while (np.isnan(f1(x+step*delta_x, t))) or (f1(x+step*delta_x, t) >= f1(x, t)+alpha*step*grad_f1(x, t).T.dot(delta_x)):
+        step = beta*step
+
+    x_new = x+step*delta_x
+    gap = lambda1**2/2
+    #value_function.append(dual_objective_function(y,X,x_new))
+
+    return x_new, gap
+
+def centering_step(Q,p,A,b,x,t,tol):
+
+    gap = np.inf
+
+    while gap > tol:
+        [x_new, gap] = Newton(t,x, grad_f1, hess_f1, f1)
+        x = x_new
+
+    return x
+
+def barr_method(Q,p,A,b,x_0,mu,tol):
+
+    x = x_0
+    m = A.shape[0]
+    t=1
+
+    while m/t >= tol:
+        x = centering_step(Q,p,A,b,x,t,tol)
+        t = mu*t
+    return x
+
+def SVM_classifier(X, y, primal=True):
+    C = 1
+    tol = 0.5
+    mu = 2
+    t =1
+    if primal:
+        global Q, p, A, b
+        Q, p, A, b = transform_svm_primal( C, X, y)
+        d = X.shape[0]
+        x_0 = np.zeros(A.shape[1])
+        x_0[d:] = 2
+    else:
+        Q, p, A, b = transform_svm_dual( C, X, y)
+        x_0 = 0.5*np.ones(A.shape[1])
+
+    x = barr_method(Q,p,A,b,x_0,mu,tol)
+    y_pred = X.T.dot(x[:d])
+
+    return y_pred
