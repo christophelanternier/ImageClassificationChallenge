@@ -116,6 +116,7 @@ def test_one_versus_all_logistic_classifier(alphas, train_features, test_feature
     if test_labels is None:
         print "writing result to file ", filename
         DF = pd.DataFrame(data=predicted_labels, columns=['Prediction'])
+        DF.index += 1
         DF.to_csv(filename, index=True, index_label='Id', sep=',')
     else:
         error_rate = 0
