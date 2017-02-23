@@ -13,11 +13,12 @@ Xte = np.delete(Xte, 3072, axis=1)
 Ytr = Ytr[1:,1]
 N = len(Ytr)
 
-
-train_images = fourier_1D_kernel(Xtr)
+# chaque ligne est un exemple
+#train_images = fourier_1D_kernel(Xtr)
+train_images = wavelet_transform(Xtr)
 train_labels = Ytr
 
-test_images = fourier_1D_kernel(Xte)
+test_images = wavelet_transform(Xte)
 
 alphas = train_one_versus_all_logistic_classifier(train_images, train_labels)
 n_labels = 10
