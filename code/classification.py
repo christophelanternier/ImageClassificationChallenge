@@ -251,3 +251,5 @@ def SVM_classifier(X, y, primal=True):
     y_pred = X.T.dot(x[:d])
 
     return y_pred
+
+    # faire une fonction qui permet de sortir x
