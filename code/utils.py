@@ -12,7 +12,7 @@ def convolution_2D(image, filter):
     filter_fft = np.fft.fft2(zero_padded_filter)
     image_fft = np.fft.fft2(zero_padded_image)
 
-    return np.fft.ifft2(image_fft * filter_fft)[0:image.shape[0], 0:image.shape[1]]
+    return np.fft.ifft2(image_fft * filter_fft)[0:image.shape[0], 0:image.shape[1]].real
 
 def separate_RGB_images(image, size=1024):
     return image[:size], image[size:2*size], image[2*size:3*size]
