@@ -92,39 +92,55 @@ def fourier_phase_2D_kernel(images):
 
     return fourier_2D_phase
 
-def scattering_with_haar_wavelets(images):
-    wavelet_1_hor = np.zeros((32,32))
-    wavelet_1_vert = np.zeros((32,32))
-    wavelet_1_hor[0:4,0:2] = 1.0 / 4**2
-    wavelet_1_hor[0:4,2:4] = -1.0 / 4**2
-    wavelet_1_vert[0:2,0:4] = 1.0 / 4**2
-    wavelet_1_vert[2:4,0:4] = -1.0 / 4**2
+def scattering_transform(images, wavelet_type='gabor'):
+    if wavelet_type == 'gabor':
+        wavelets_scale_1 = generate_gabor_wavelets_2D(4,32)
+        wavelets_scale_2 = generate_gabor_wavelets_2D(8,32)
+        wavelets_scale_3 = generate_gabor_wavelets_2D(16,32)
+    else:
+        wavelets_scale_1 = generate_haar_wavelets_2D(4,32)
+        wavelets_scale_2 = generate_haar_wavelets_2D(8,32)
+        wavelets_scale_3 = generate_haar_wavelets_2D(16,32)
 
+    scale_1_subsample_size = 2
+    scale_2_subsample_size = 4
+    scale_3_subsample_size = 8
 
-    wavelet_2_hor = np.zeros((32,32))
-    wavelet_2_vert = np.zeros((32,32))
-    wavelet_2_hor[0:8,0:4] = 1.0 / 4**2
-    wavelet_2_hor[0:4,4:8] = -1.0 / 4**2
-    wavelet_2_vert[0:4,0:8] = 1.0 / 4**2
-    wavelet_2_vert[4:8,0:8] = -1.0 / 4**2
+    feature_size = len(wavelets_scale_1) * (1024 / scale_1_subsample_size**2) + len(wavelets_scale_2) * len(wavelets_scale_1) * (1024 / scale_2_subsample_size**2)
 
-    scattering_features = np.zeros((images.shape[0], 3 * 6 * 1024))
+    scattering_features = np.zeros((images.shape[0], 3 * feature_size))
+
     for i in range(images.shape[0]):
         RGB = separate_RGB_images(images[i])
 
         for j, image in enumerate(RGB):
-            features = []
-            image = image.reshape((32, 32))
-            image_w1h = np.abs(convolution_2D(image, wavelet_1_hor))
-            image_w1v = np.abs(convolution_2D(image, wavelet_1_vert))
-            features.append(image_w1h)
-            features.append(image_w1v)
-            features.append(np.abs(convolution_2D(image_w1h, wavelet_2_hor)))
-            features.append(np.abs(convolution_2D(image_w1h, wavelet_2_vert)))
-            features.append(np.abs(convolution_2D(image_w1v, wavelet_2_hor)))
-            features.append(np.abs(convolution_2D(image_w1v, wavelet_2_vert)))
+            image = image.reshape((32,32))
+            features_scale_1 = []
 
-            for k, feat in enumerate(features):
-                scattering_features[i,(6*j + k)*1024 :(6*j + k+1)*1024] = feat.reshape(1024)
+            for wavelet_scale_1 in wavelets_scale_1:
+                features_scale_1.append(np.abs(convolution_2D(image, wavelet_scale_1)))
+
+            features_scale_2 = []
+
+            for wavelet_scale_2 in wavelets_scale_2:
+                for feature_scale_1 in features_scale_1:
+                    features_scale_2.append(np.abs(convolution_2D(feature_scale_1, wavelet_scale_2)))
+
+            size_1 = 1024 / scale_1_subsample_size**2
+            size_2 = 1024 / scale_2_subsample_size**2
+
+            end = j * feature_size
+
+            for feature_scale_1 in features_scale_1:
+                start = end
+                end += size_1
+
+                scattering_features[i, start:end] = average_and_subsample(feature_scale_1, scale_1_subsample_size).reshape(size_1)
+
+            for feature_scale_2 in features_scale_2:
+                start = end
+                end += size_2
+
+                scattering_features[i, start:end] = average_and_subsample(feature_scale_2, scale_2_subsample_size).reshape(size_2)
 
     return scattering_features

@@ -24,7 +24,7 @@ def average_and_subsample(image, size):
 
     for i in range(N):
         for j in range(M):
-            averaged[i,j] = np.mean(image[i*size:(i+1)*size, j*size:j+1*size])
+            averaged[i,j] = np.mean(image[i*size:(i+1)*size, j*size:(j+1)*size])
 
     return averaged
 
