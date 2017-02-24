@@ -2,6 +2,64 @@ import cvxopt
 import numpy as np
 import pandas as pd
 
+#####################
+#NEW SVM
+####################
+def one_versus_all_SVM(features, labels, _lambda):
+    N = len(labels)
+    n_labels = len(set(labels))
+    alphas = np.zeros((n_labels, N))
+    bias = np.zeros(n_labels)
+
+    #Linear Kernel:
+    K = features.T.dot(features)
+
+    for label in range(n_labels):
+        one_versus_all_labels = np.zeros(N)
+        for i in range(N):
+            if labels[i] == label:
+                one_versus_all_labels[i] = 1
+            else:
+                one_versus_all_labels[i] = -1
+        alphas[label, :], bias[label] = train_SVM(K, one_versus_all_labels, _lambda)
+        print "classifier for label ", label, " done"
+
+    return alphas, bias
+
+def predict_SVM(alphas, bias, features, X):
+    y_pred = np.zeros(alphas.shape[0])
+    values_pred = np.zeros((alphas.shape[0],X.shape[1]))
+    for k in range(alphas.shape[0]):
+        values_pred[k,:] = alphas[k,:].dot(features.T.dot(X))+bias[k]
+    return np.argmax(values_pred, axis=0)
+
+def train_SVM(K, y, _lambda):
+
+    n = y.shape[0]
+    gamma = 1 / (2 * _lambda * n)
+
+    P = cvxopt.matrix(K)
+
+    h = cvxopt.matrix(0., (2 * n, 1))
+    h[:n] = gamma
+
+    A = cvxopt.matrix(1., (1, n))
+    b = cvxopt.matrix(0.)
+
+    y = y.astype(np.double)
+    diag_y = cvxopt.spdiag(y.tolist())
+    q = cvxopt.matrix(-y)
+    G = cvxopt.sparse([diag_y, -diag_y])
+
+    res = cvxopt.solvers.qp(P, q, G, h, A, b)
+
+    return np.array(res["x"]).T, res["y"][0]
+
+###################
+#END OF NEW SVM
+#################
+
+
 def sigma(u):
     return 1.0 / (1 + np.exp(-u))
 
