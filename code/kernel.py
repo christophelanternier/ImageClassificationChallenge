@@ -92,55 +92,13 @@ def fourier_phase_2D_kernel(images):
 
     return fourier_2D_phase
 
-def scattering_transform(images, wavelet_type='gabor'):
-    if wavelet_type == 'gabor':
-        wavelets_scale_1 = generate_gabor_wavelets_2D(4,32)
-        wavelets_scale_2 = generate_gabor_wavelets_2D(8,32)
-        wavelets_scale_3 = generate_gabor_wavelets_2D(16,32)
-    else:
-        wavelets_scale_1 = generate_haar_wavelets_2D(4,32)
-        wavelets_scale_2 = generate_haar_wavelets_2D(8,32)
-        wavelets_scale_3 = generate_haar_wavelets_2D(16,32)
-
-    scale_1_subsample_size = 2
-    scale_2_subsample_size = 4
-    scale_3_subsample_size = 8
-
-    feature_size = len(wavelets_scale_1) * (1024 / scale_1_subsample_size**2) + len(wavelets_scale_2) * len(wavelets_scale_1) * (1024 / scale_2_subsample_size**2)
-
-    scattering_features = np.zeros((images.shape[0], 3 * feature_size))
+def scattering_kernel(images, maximum_scale=3):
+    n_images = images.shape[0]
+    scattering_transform_size = scattering_transform(images[0,:], maximum_scale).size
+    scattering_features = np.zeros((n_images, scattering_transform_size))
 
     for i in range(images.shape[0]):
-        RGB = separate_RGB_images(images[i])
-
-        for j, image in enumerate(RGB):
-            image = image.reshape((32,32))
-            features_scale_1 = []
-
-            for wavelet_scale_1 in wavelets_scale_1:
-                features_scale_1.append(np.abs(convolution_2D(image, wavelet_scale_1)))
-
-            features_scale_2 = []
-
-            for wavelet_scale_2 in wavelets_scale_2:
-                for feature_scale_1 in features_scale_1:
-                    features_scale_2.append(np.abs(convolution_2D(feature_scale_1, wavelet_scale_2)))
-
-            size_1 = 1024 / scale_1_subsample_size**2
-            size_2 = 1024 / scale_2_subsample_size**2
-
-            end = j * feature_size
-
-            for feature_scale_1 in features_scale_1:
-                start = end
-                end += size_1
-
-                scattering_features[i, start:end] = average_and_subsample(feature_scale_1, scale_1_subsample_size).reshape(size_1)
-
-            for feature_scale_2 in features_scale_2:
-                start = end
-                end += size_2
-
-                scattering_features[i, start:end] = average_and_subsample(feature_scale_2, scale_2_subsample_size).reshape(size_2)
+        image = images[i,:]
+        scattering_features[i,:] = scattering_transform(image, maximum_scale)
 
     return scattering_features

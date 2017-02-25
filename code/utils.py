@@ -28,38 +28,6 @@ def average_and_subsample(image, size):
 
     return averaged
 
-def haar_wavelets_2D(size=32, return_type='vector'):
-    n_mother_wavelets = 2
-    n_scales = int(log(size) / log(2))
-
-    wavelets = []
-    for n_scale in range(n_scales):
-        scale_wavelets = []
-        scale = power(2, n_scale + 1)
-        normalize_constant = 1.0 / power(scale, 2)
-
-        for i in range(size / scale):
-            I = i * scale
-            for j in range(size / scale):
-                J = j * scale
-                horizontal_wavelet = np.zeros((size, size))
-                horizontal_wavelet[I:I+scale,J:J+scale/2] = normalize_constant
-                horizontal_wavelet[I:I+scale,J+scale/2:J+scale] = -normalize_constant
-
-                vertical_wavelet = np.zeros((size, size))
-                vertical_wavelet[I:I+scale/2,J:J+scale] = normalize_constant
-                vertical_wavelet[I+scale/2:I+scale,J:J+scale] = -normalize_constant
-
-                if return_type == 'vector':
-                    scale_wavelets.append(horizontal_wavelet.reshape(size**2))
-                    scale_wavelets.append(vertical_wavelet.reshape(size**2))
-                else:
-                    scale_wavelets.append(horizontal_wavelet)
-                    scale_wavelets.append(vertical_wavelet)
-        wavelets.append(scale_wavelets)
-
-    return np.array(wavelets)
-
 def generate_haar_wavelets_2D(scale, size=32):
     normalize_constant = 1.0 / scale**2
 
@@ -116,3 +84,34 @@ def generate_gabor_wavelets_2D(scale, size=32):
         wavelet = wavelet / sqrt(np.sum(wavelet * wavelet))
 
     return wavelets
+
+def scattering_transform(image, maximum_scale, wavelet_type='gabor'):
+    scale_wavelets = []
+    for j in range(maximum_scale):
+        scale = power(2, (j+1))
+        if wavelet_type == 'gabor':
+            scale_wavelets.append(generate_gabor_wavelets_2D(scale))
+        else:
+            scale_wavelets.append(generate_haar_wavelets_2D(scale))
+
+    features = []
+    subsample_interval = power(2, maximum_scale)
+    RGB = separate_RGB_images(image)
+
+    for i, img in enumerate(RGB):
+        img = img.reshape((32,32))
+
+        features_scale_n = [img]
+        for wavelets in scale_wavelets:
+            features_scale_n_plus_1 = []
+
+            for feature_scale_n in features_scale_n:
+                for wavelet in wavelets:
+                    features_scale_n_plus_1.append(np.abs(convolution_2D(feature_scale_n, wavelet)))
+
+            for feature_scale_n in features_scale_n:
+                features.append(average_and_subsample(feature_scale_n, subsample_interval).ravel())
+
+            feature_scale_n = features_scale_n_plus_1
+
+    return np.concatenate(features)
