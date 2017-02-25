@@ -98,7 +98,7 @@ def scattering_transform(image, maximum_scale, wavelet_type='gabor'):
     subsample_interval = power(2, maximum_scale)
     RGB = separate_RGB_images(image)
 
-    for i, img in enumerate(RGB):
+    for img in RGB:
         img = img.reshape((32,32))
 
         features_scale_n = [img]

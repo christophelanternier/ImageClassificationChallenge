@@ -16,10 +16,10 @@ N = len(Ytr)
 
 N_train = 3000
 train_images = Xtr[0:N_train,:]
-train_labels = Ytr[0:N_train,:]
+train_labels = Ytr[0:N_train]
 
 test_images = Xtr[N_train:,:]
-test_labels = Ytr[N_train:,:]
+test_labels = Ytr[N_train:]
 
 maximum_scales = [2, 3, 4]
 lambdas = [0.1, 0.01, 0.001]
@@ -29,6 +29,7 @@ for maximum_scale in maximum_scales:
     test_scattering_features = scattering_kernel(test_images, maximum_scale=maximum_scale).T
 
     for _lambda in lambdas:
+        print ' =============== lambda = ', _lambda, ' maximum_scale = ', maximum_scale, ' ==============='
         t1 = datetime.now()
         alphas, bias = one_versus_all_SVM(train_scattering_features, train_labels, _lambda=_lambda)
         t2 = datetime.now()
@@ -42,7 +43,7 @@ for maximum_scale in maximum_scales:
             for i in range(len(prediction)):
                 if prediction[i] == test_labels[i]:
                     well_classified += 1
-                print 'lambda = ', _lambda, ', good classification rate = ', float(well_classified) / (N - N_train)
+            print 'lambda = ', _lambda, ', good classification rate = ', float(well_classified) / len(prediction)
         else:
             DF = pd.DataFrame(data=pd.Series(prediction), columns=['Prediction'])
             DF.index += 1
