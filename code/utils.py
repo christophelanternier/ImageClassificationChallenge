@@ -2,18 +2,25 @@ import numpy as np
 from numpy import power, log, exp, cos, sin, sqrt
 from scipy.signal import fftconvolve
 
-def convolution_2D(image, filter):
-    if image.shape != filter.shape:
-        raise Exception('Image (shape = '+ str(image.shape) + ') and filter (shape = ' + str(filter.shape) + ') must have same shape')
-    zero_padded_image = np.zeros((2 * image.shape[0], 2 * image.shape[1]))
-    zero_padded_image[0:image.shape[0], 0:image.shape[1]] = image
-    zero_padded_filter = np.zeros((2 * filter.shape[0], 2 * filter.shape[1]))
-    zero_padded_filter[0:filter.shape[0], 0:filter.shape[1]] = filter
+def parties(card, n):
+    ensemble = range(1, n+1)
+    parties = []
 
-    filter_fft = np.fft.fft2(zero_padded_filter)
-    image_fft = np.fft.fft2(zero_padded_image)
+    i = 0
+    i_max = 2**n
 
-    return np.fft.ifft2(image_fft * filter_fft)[0:image.shape[0], 0:image.shape[1]].real
+    while i < i_max:
+        s = []
+        j = 0
+        j_max = n
+        while j < j_max:
+            if (i>>j)&1 == 1:
+                s.append(j+1)
+            j += 1
+        if (len(s) == card):
+            parties.append(s)
+        i += 1
+    return parties
 
 def separate_RGB_images(image, size=1024):
     return image[:size], image[size:2*size], image[2*size:3*size]
@@ -95,13 +102,13 @@ def scattering_transform(image, maximum_scale, wavelet_type='gabor'):
         else:
             scale_wavelets.append(generate_haar_wavelets_2D(scale, scale))
 
-    # compute all features
-    features = []
+    subsample_interval = power(2, maximum_scale)
+    subsampled_features = []
 
     for img in separate_RGB_images(image):
         img = img.reshape((32,32))
 
-        features.append([img])
+        features = [[img]]
         for wavelets in scale_wavelets:
             new_features = []
 
@@ -109,12 +116,11 @@ def scattering_transform(image, maximum_scale, wavelet_type='gabor'):
                 for wavelet in wavelets:
                     new_features.append(np.abs(fftconvolve(feature, wavelet, mode='same')))
 
-    # compute subsampled features
-    subsampled_features = []
-    subsample_interval = power(2, maximum_scale)
-    for i in range(len(features)):
-        features_scale_n = features[i]
-        for feature in features_scale_n:
-            subsampled_features.append(average_and_subsample(feature, subsample_interval).ravel())
+            features.append(new_features)
+
+        for i in range(len(features)):
+            features_scale_n = features[i]
+            for feature in features_scale_n:
+                subsampled_features.append(average_and_subsample(feature, subsample_interval).ravel())
 
     return np.concatenate(subsampled_features)
