@@ -2,6 +2,7 @@ import numpy as np
 import pywt
 import pywt.data
 from utils import *
+from scipy.signal import fftconvolve
 
 def wavelet_transform(Xtr):
     result = np.zeros((Xtr.shape[0], 972))
@@ -102,3 +103,54 @@ def scattering_kernel(images, maximum_scale=3):
         scattering_features[i,:] = scattering_transform(image, maximum_scale)
 
     return scattering_features
+
+def first_scattering_kernel(images, wavelet_type='gabor'):
+    scales = [4, 8]
+    scale_wavelets = []
+    for scale in scales:
+        if wavelet_type == 'gabor':
+            scale_wavelets.append(generate_gabor_wavelets_2D(scale,scale))
+        else:
+            scale_wavelets.append(generate_haar_wavelets_2D(scale,scale))
+
+    subsample_sizes = [2, 4]
+
+    feature_size = 0
+    n_feature_maps = 1
+    for i, (scale, subsample_size) in enumerate(zip(scales, subsample_sizes)):
+        wavelets = scale_wavelets[i]
+        n_feature_maps *= len(wavelets)
+        feature_size += n_feature_maps * 1024 / subsample_size**2
+
+    scattering_features = np.zeros((images.shape[0], 3 * feature_size))
+
+    for i in range(images.shape[0]):
+        RGB = separate_RGB_images(images[i])
+
+        end_index = 0
+        for j, image in enumerate(RGB):
+            image = image.reshape((32,32))
+
+            features = [[image]]
+
+            # compute all features
+            for k, wavelets in enumerate(scale_wavelets):
+                new_features= []
+                for wavelet in wavelets:
+                    for feature in features[-1]:
+                        new_features.append(np.abs(fftconvolve(feature, wavelet, mode='same')))
+                features.append(new_features)
+
+            # subsample feature, exept the first which is the image
+            for k in range(1, len(features)):
+                features_scale_n = features[k]
+                subsample_size = subsample_sizes[k-1]
+                feature_scale_n_size = 1024 / subsample_size**2
+
+                for feature_scale_n in features_scale_n:
+                    start_index = end_index
+                    end_index += feature_scale_n_size
+                    scattering_features[i, start_index:end_index] = average_and_subsample(feature_scale_n, subsample_size).ravel()
+
+    return scattering_features
+

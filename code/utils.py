@@ -1,5 +1,6 @@
 import numpy as np
 from numpy import power, log, exp, cos, sin, sqrt
+from scipy.signal import fftconvolve
 
 def convolution_2D(image, filter):
     if image.shape != filter.shape:
@@ -90,28 +91,30 @@ def scattering_transform(image, maximum_scale, wavelet_type='gabor'):
     for j in range(maximum_scale):
         scale = power(2, (j+1))
         if wavelet_type == 'gabor':
-            scale_wavelets.append(generate_gabor_wavelets_2D(scale))
+            scale_wavelets.append(generate_gabor_wavelets_2D(scale, scale))
         else:
-            scale_wavelets.append(generate_haar_wavelets_2D(scale))
+            scale_wavelets.append(generate_haar_wavelets_2D(scale, scale))
 
+    # compute all features
     features = []
-    subsample_interval = power(2, maximum_scale)
-    RGB = separate_RGB_images(image)
 
-    for img in RGB:
+    for img in separate_RGB_images(image):
         img = img.reshape((32,32))
 
-        features_scale_n = [img]
+        features.append([img])
         for wavelets in scale_wavelets:
-            features_scale_n_plus_1 = []
+            new_features = []
 
-            for feature_scale_n in features_scale_n:
+            for feature in features[-1]:
                 for wavelet in wavelets:
-                    features_scale_n_plus_1.append(np.abs(convolution_2D(feature_scale_n, wavelet)))
+                    new_features.append(np.abs(fftconvolve(feature, wavelet, mode='same')))
 
-            for feature_scale_n in features_scale_n:
-                features.append(average_and_subsample(feature_scale_n, subsample_interval).ravel())
+    # compute subsampled features
+    subsampled_features = []
+    subsample_interval = power(2, maximum_scale)
+    for i in range(len(features)):
+        features_scale_n = features[i]
+        for feature in features_scale_n:
+            subsampled_features.append(average_and_subsample(feature, subsample_interval).ravel())
 
-            feature_scale_n = features_scale_n_plus_1
-
-    return np.concatenate(features)
+    return np.concatenate(subsampled_features)
