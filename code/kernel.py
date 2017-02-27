@@ -93,14 +93,14 @@ def fourier_phase_2D_kernel(images):
 
     return fourier_2D_phase
 
-def scattering_kernel(images, maximum_scale=3):
+def scattering_kernel(images, order, scale, wavelet_type='gabor'):
     n_images = images.shape[0]
-    scattering_transform_size = scattering_transform(images[0,:], maximum_scale).size
+    scattering_transform_size = scattering_transform(images[0,:], order, scale, wavelet_type=wavelet_type).size
     scattering_features = np.zeros((n_images, scattering_transform_size))
 
     for i in range(images.shape[0]):
         image = images[i,:]
-        scattering_features[i,:] = scattering_transform(image, maximum_scale)
+        scattering_features[i,:] = scattering_transform(image, order, scale, wavelet_type=wavelet_type)
 
     return scattering_features
 
@@ -108,14 +108,14 @@ def first_scattering_kernel(images, wavelet_type='gabor'):
     scales = [4, 8]
     scale_wavelets = []
     for scale in scales:
-        if wavelet_type == 'gabor':
-            scale_wavelets.append(generate_gabor_wavelets_2D(scale,scale))
-        else:
-            scale_wavelets.append(generate_haar_wavelets_2D(scale,scale))
+        scale_wavelets.append(generate_2D_wavelets(scale, type=wavelet_type))
 
     subsample_sizes = [2, 4]
 
-    feature_size = 0
+    image_subsample_size = 4
+    subsampled_image_size = 1024 / image_subsample_size**2
+
+    feature_size = subsampled_image_size
     n_feature_maps = 1
     for i, (scale, subsample_size) in enumerate(zip(scales, subsample_sizes)):
         wavelets = scale_wavelets[i]
@@ -135,13 +135,18 @@ def first_scattering_kernel(images, wavelet_type='gabor'):
 
             # compute all features
             for k, wavelets in enumerate(scale_wavelets):
-                new_features= []
+                new_features = []
                 for wavelet in wavelets:
                     for feature in features[-1]:
                         new_features.append(np.abs(fftconvolve(feature, wavelet, mode='same')))
                 features.append(new_features)
 
-            # subsample feature, exept the first which is the image
+            #add subsampled image to features
+            start_index = end_index
+            end_index += subsampled_image_size
+            scattering_features[i, start_index:end_index] = average_and_subsample(image, image_subsample_size).ravel()
+
+            #subsample features
             for k in range(1, len(features)):
                 features_scale_n = features[k]
                 subsample_size = subsample_sizes[k-1]
@@ -153,4 +158,3 @@ def first_scattering_kernel(images, wavelet_type='gabor'):
                     scattering_features[i, start_index:end_index] = average_and_subsample(feature_scale_n, subsample_size).ravel()
 
     return scattering_features
-

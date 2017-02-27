@@ -64,43 +64,68 @@ def generate_haar_wavelets_2D(scale, size=32):
     return [vertical_wavelet, horizontal_wavelet, diagonal_wavelet_1, diagonal_wavelet_2]
 
 
-def generate_gabor_wavelets_2D(scale, size=32):
-    freq = 1.0 / scale
+def generate_2D_wavelets(size, type='gabor'):
+    shape = (size, size)
 
-    horizontal_wavelet = np.zeros((size, size))
-    vertical_wavelet = np.zeros((size, size))
-    diagonal_wavelet_1 = np.zeros((size, size))
-    diagonal_wavelet_2 = np.zeros((size, size))
+    horizontal_wavelet = np.zeros(shape)
+    vertical_wavelet = np.zeros(shape)
+    diagonal_wavelet_1 = np.zeros(shape)
+    diagonal_wavelet_2 = np.zeros(shape)
 
 
-    c_x = scale / 2
-    c_y = scale / 2
-    for i in range(scale):
-        for j in range(scale):
-            y = (i + 0.5)
-            x = (j + 0.5)
-            shape = exp(-(power(x - c_x, 2) + power(y - c_y, 2)) * freq)
+    if type == 'gabor':
+        freq = 1.0 / size
+        c_x = size / 2
+        c_y = size / 2
+        for i in range(size):
+            for j in range(size):
+                y = (i + 0.5)
+                x = (j + 0.5)
+                shape = exp(-(power(x - c_x, 2) + power(y - c_y, 2)) * freq)
 
-            vertical_wavelet[i,j] = shape * sin(2 * np.pi * y * freq)
-            horizontal_wavelet[i,j] = shape * sin(2 * np.pi * x * freq)
-            diagonal_wavelet_1[i,j] = shape * sin(2 * np.pi * (x + y - scale) * freq)
-            diagonal_wavelet_2[i,j] = shape * sin(2 * np.pi * (y - x) * freq)
+                vertical_wavelet[i,j] = shape * sin(2 * np.pi * y * freq)
+                horizontal_wavelet[i,j] = shape * sin(2 * np.pi * x * freq)
+                diagonal_wavelet_1[i,j] = shape * sin(2 * np.pi * (x + y - size) * freq)
+                diagonal_wavelet_2[i,j] = shape * sin(2 * np.pi * (y - x) * freq)
 
-    wavelets = [vertical_wavelet, horizontal_wavelet, diagonal_wavelet_1, diagonal_wavelet_2]
+        wavelets = [vertical_wavelet, horizontal_wavelet, diagonal_wavelet_1, diagonal_wavelet_2]
 
-    for wavelet in wavelets:
-        wavelet = wavelet / sqrt(np.sum(wavelet * wavelet))
+        for wavelet in wavelets:
+            wavelet = wavelet / sqrt(np.sum(wavelet * wavelet))
+    elif type == 'haar':
+        normalize_constant = 1.0 / size**2
+
+        horizontal_wavelet[0:size,0:size/2] = normalize_constant
+        horizontal_wavelet[0:size,size/2:size] = -normalize_constant
+
+        vertical_wavelet = horizontal_wavelet.T
+
+        for i in range(size):
+            for j in range(size):
+                if (i < j) or (i == j and i % 2 == 0):
+                    diagonal_wavelet_1[i,j] = normalize_constant
+                else:
+                    diagonal_wavelet_1[i,j] = -normalize_constant
+
+                if (i + j < size - 1) or (i + j  == size - 1 and i % 2 == 0):
+                    diagonal_wavelet_2[i,j] = normalize_constant
+                else:
+                    diagonal_wavelet_2[i,j] = -normalize_constant
+
+        wavelets = [vertical_wavelet, horizontal_wavelet, diagonal_wavelet_1, diagonal_wavelet_2]
+    else:
+        raise Exception('Unknown wavelet type ' + str(type))
 
     return wavelets
 
-def scattering_transform(image, maximum_scale, wavelet_type='gabor'):
-    scale_wavelets = []
-    for j in range(maximum_scale):
-        scale = power(2, (j+1))
-        if wavelet_type == 'gabor':
-            scale_wavelets.append(generate_gabor_wavelets_2D(scale, scale))
-        else:
-            scale_wavelets.append(generate_haar_wavelets_2D(scale, scale))
+def scattering_transform(image, order, maximum_scale, wavelet_type='gabor'):
+    wavelets_banks = []
+    for p in parties(order, maximum_scale):
+        wavelets_bank = []
+        for j in p:
+            wavelet_size = power(2, j)
+            wavelets_bank.append(generate_2D_wavelets(wavelet_size, type=wavelet_type))
+        wavelets_banks.append(wavelets_bank)
 
     subsample_interval = power(2, maximum_scale)
     subsampled_features = []
@@ -108,19 +133,20 @@ def scattering_transform(image, maximum_scale, wavelet_type='gabor'):
     for img in separate_RGB_images(image):
         img = img.reshape((32,32))
 
-        features = [[img]]
-        for wavelets in scale_wavelets:
-            new_features = []
+        for wavelets_bank in wavelets_banks:
+            features = [[img]]
+            for wavelets in wavelets_bank:
+                new_features = []
 
-            for feature in features[-1]:
-                for wavelet in wavelets:
-                    new_features.append(np.abs(fftconvolve(feature, wavelet, mode='same')))
+                for feature in features[-1]:
+                    for wavelet in wavelets:
+                        new_features.append(np.abs(fftconvolve(feature, wavelet, mode='same')))
 
-            features.append(new_features)
+                features.append(new_features)
 
-        for i in range(len(features)):
-            features_scale_n = features[i]
-            for feature in features_scale_n:
-                subsampled_features.append(average_and_subsample(feature, subsample_interval).ravel())
+            for i in range(len(features)):
+                features_scale_n = features[i]
+                for feature in features_scale_n:
+                    subsampled_features.append(average_and_subsample(feature, subsample_interval).ravel())
 
     return np.concatenate(subsampled_features)
