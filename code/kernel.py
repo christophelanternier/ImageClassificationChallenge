@@ -92,39 +92,13 @@ def fourier_phase_2D_kernel(images):
 
     return fourier_2D_phase
 
-def scattering_with_haar_wavelets(images):
-    wavelet_1_hor = np.zeros((32,32))
-    wavelet_1_vert = np.zeros((32,32))
-    wavelet_1_hor[0:4,0:2] = 1.0 / 4**2
-    wavelet_1_hor[0:4,2:4] = -1.0 / 4**2
-    wavelet_1_vert[0:2,0:4] = 1.0 / 4**2
-    wavelet_1_vert[2:4,0:4] = -1.0 / 4**2
+def scattering_kernel(images, maximum_scale=3):
+    n_images = images.shape[0]
+    scattering_transform_size = scattering_transform(images[0,:], maximum_scale).size
+    scattering_features = np.zeros((n_images, scattering_transform_size))
 
-
-    wavelet_2_hor = np.zeros((32,32))
-    wavelet_2_vert = np.zeros((32,32))
-    wavelet_2_hor[0:8,0:4] = 1.0 / 4**2
-    wavelet_2_hor[0:4,4:8] = -1.0 / 4**2
-    wavelet_2_vert[0:4,0:8] = 1.0 / 4**2
-    wavelet_2_vert[4:8,0:8] = -1.0 / 4**2
-
-    scattering_features = np.zeros((images.shape[0], 3 * 6 * 1024))
     for i in range(images.shape[0]):
-        RGB = separate_RGB_images(images[i])
-
-        for j, image in enumerate(RGB):
-            features = []
-            image = image.reshape((32, 32))
-            image_w1h = np.abs(convolution_2D(image, wavelet_1_hor))
-            image_w1v = np.abs(convolution_2D(image, wavelet_1_vert))
-            features.append(image_w1h)
-            features.append(image_w1v)
-            features.append(np.abs(convolution_2D(image_w1h, wavelet_2_hor)))
-            features.append(np.abs(convolution_2D(image_w1h, wavelet_2_vert)))
-            features.append(np.abs(convolution_2D(image_w1v, wavelet_2_hor)))
-            features.append(np.abs(convolution_2D(image_w1v, wavelet_2_vert)))
-
-            for k, feat in enumerate(features):
-                scattering_features[i,(6*j + k)*1024 :(6*j + k+1)*1024] = feat.reshape(1024)
+        image = images[i,:]
+        scattering_features[i,:] = scattering_transform(image, maximum_scale)
 
     return scattering_features
