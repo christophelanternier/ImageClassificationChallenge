@@ -1,10 +1,60 @@
 import cvxopt
 import numpy as np
 import pandas as pd
+from utils import *
 
 #####################
 #NEW SVM
 ####################
+
+def compute_class_PCA_linear_space(features, labels):
+    n_labels = np.unique(labels).size
+    means = []
+    projection_basis = []
+
+    for label in range(n_labels):
+        print 'computing PCA basis for label ', label, '...'
+        label_indices = np.where(labels == label)[0]
+        label_features = features[label_indices, :]
+        print 'label features shape : ', label_features.shape
+        mean, centered_features = recenter(label_features)
+        covariance_matrix = np.cov(centered_features.T)
+        print 'covariance_matrix shape : ', covariance_matrix.shape
+        eigenvalues, eigenvectors = np.linalg.eigh(covariance_matrix)
+        decreasing_eigenvalues_index = eigenvalues.argsort()[::-1]
+        eigenvectors = eigenvectors[:,decreasing_eigenvalues_index]
+        print 'eigenvectors shape : ', eigenvectors.shape
+
+        means.append(mean)
+        projection_basis.append(eigenvectors)
+        print '...done'
+
+    print 'n means : ', len(means), ' n projection basis ', len(projection_basis)
+    return means, projection_basis
+
+def predict_with_class_PCA_projection(features, means, projection_basis, dim):
+    n_features = features.shape[0]
+    predicted_labels = np.zeros(n_features)
+    for i in range(n_features):
+        feature = features[i,:]
+        lowest_distance_to_PCA_space = np.inf
+        predicted_label = -1
+        for (j, (mean, basis)) in enumerate(zip(means, projection_basis)):
+            if j >= dim:
+                break
+            centered_feature = feature - mean
+            distance_to_PCA_space = np.linalg.norm(centered_feature - compute_projection(centered_feature, basis))
+            if (distance_to_PCA_space < lowest_distance_to_PCA_space):
+                predicted_label = j
+                lowest_distance_to_PCA_space = distance_to_PCA_space
+
+        predicted_labels[i] = predicted_label
+    return predicted_labels
+
+#####################
+#NEW SVM
+####################
+
 def one_versus_all_SVM(features, labels, _lambda):
     N = len(labels)
     n_labels = len(set(labels))

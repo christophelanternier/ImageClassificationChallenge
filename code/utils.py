@@ -2,6 +2,25 @@ import numpy as np
 from numpy import power, log, exp, cos, sin, sqrt
 from scipy.signal import fftconvolve
 
+def recenter(features):
+    centered_features = np.copy(features)
+    mean_feature = np.mean(features, axis=0)
+
+    for i in range(features.shape[0]):
+        centered_features[i,:] = features[i,:] - mean_feature
+
+    return mean_feature, centered_features
+
+def compute_projection(vector, basis):
+    projection = np.zeros_like(vector)
+    for i in range(basis.shape[1]):
+        basis_vector = basis[:,1]
+        if basis_vector.shape != vector.shape:
+            raise Exception('basis vector shape ' + str(basis_vector.shape) + ' must be equal to vector shape ' + str(vector.shape))
+        projection += vector.dot(basis_vector) * basis_vector
+    return projection
+
+
 def parties(card, n):
     ensemble = range(1, n+1)
     parties = []
