@@ -4,7 +4,7 @@ import pandas as pd
 from utils import *
 
 #####################
-#NEW SVM
+# PCA
 ####################
 
 def compute_class_PCA_linear_space(features, labels):
@@ -22,6 +22,7 @@ def compute_class_PCA_linear_space(features, labels):
         print 'covariance_matrix shape : ', covariance_matrix.shape
         eigenvalues, eigenvectors = np.linalg.eigh(covariance_matrix)
         decreasing_eigenvalues_index = eigenvalues.argsort()[::-1]
+        print 'first 5 eigenvalues : ', eigenvalues[decreasing_eigenvalues_index][0:5]
         eigenvectors = eigenvectors[:,decreasing_eigenvalues_index]
         print 'eigenvectors shape : ', eigenvectors.shape
 
@@ -40,10 +41,8 @@ def predict_with_class_PCA_projection(features, means, projection_basis, dim):
         lowest_distance_to_PCA_space = np.inf
         predicted_label = -1
         for (j, (mean, basis)) in enumerate(zip(means, projection_basis)):
-            if j >= dim:
-                break
             centered_feature = feature - mean
-            distance_to_PCA_space = np.linalg.norm(centered_feature - compute_projection(centered_feature, basis))
+            distance_to_PCA_space = np.linalg.norm(compute_projection_on_last_vectors(centered_feature, basis, start_index=dim))
             if (distance_to_PCA_space < lowest_distance_to_PCA_space):
                 predicted_label = j
                 lowest_distance_to_PCA_space = distance_to_PCA_space
