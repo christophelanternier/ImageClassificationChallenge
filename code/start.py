@@ -71,6 +71,7 @@ def predict_with_scattering_kernel_and_class_PCA():
         t2 = datetime.now()
         print 'projection basis computed. durartion : ', t2 - t1
 
+        # after cross val, dimension 20 seem to be the best
         PCA_space_dimensions = range(5, 30, 1)
         for dimension in PCA_space_dimensions:
             t3 = datetime.now()

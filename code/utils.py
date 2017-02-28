@@ -45,34 +45,6 @@ def average_and_subsample(image, size):
 
     return averaged
 
-def generate_haar_wavelets_2D(scale, size=32):
-    normalize_constant = 1.0 / scale**2
-
-    horizontal_wavelet = np.zeros((size, size))
-    vertical_wavelet = np.zeros((size, size))
-    diagonal_wavelet_1 = np.zeros((size, size))
-    diagonal_wavelet_2 = np.zeros((size, size))
-
-    horizontal_wavelet[0:scale,0:scale/2] = normalize_constant
-    horizontal_wavelet[0:scale,scale/2:scale] = -normalize_constant
-
-    vertical_wavelet = horizontal_wavelet.T
-
-    for i in range(scale):
-        for j in range(scale):
-            if (i < j) or (i == j and i % 2 == 0):
-                diagonal_wavelet_1[i,j] = normalize_constant
-            else:
-                diagonal_wavelet_1[i,j] = -normalize_constant
-
-            if (i + j < scale - 1) or (i + j  == scale - 1 and i % 2 == 0):
-                diagonal_wavelet_2[i,j] = normalize_constant
-            else:
-                diagonal_wavelet_2[i,j] = -normalize_constant
-
-    return [vertical_wavelet, horizontal_wavelet, diagonal_wavelet_1, diagonal_wavelet_2]
-
-
 def generate_2D_wavelets(size, type='gabor'):
     shape = (size, size)
 

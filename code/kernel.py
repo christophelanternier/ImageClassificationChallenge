@@ -115,6 +115,7 @@ def first_scattering_kernel(images, wavelet_type='gabor'):
     image_subsample_size = 4
     subsampled_image_size = 1024 / image_subsample_size**2
 
+    # compute size of scattering transform
     feature_size = subsampled_image_size
     n_feature_maps = 1
     for i, (scale, subsample_size) in enumerate(zip(scales, subsample_sizes)):
