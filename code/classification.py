@@ -35,19 +35,27 @@ def compute_class_PCA_linear_space(features, labels):
 
 def predict_with_class_PCA_projection(features, means, projection_basis, dim):
     n_features = features.shape[0]
-    predicted_labels = np.zeros(n_features)
-    for i in range(n_features):
-        feature = features[i,:]
-        lowest_distance_to_PCA_space = np.inf
-        predicted_label = -1
-        for (j, (mean, basis)) in enumerate(zip(means, projection_basis)):
-            centered_feature = feature - mean
-            distance_to_PCA_space = np.linalg.norm(compute_projection_on_last_vectors(centered_feature, basis, start_index=dim))
-            if (distance_to_PCA_space < lowest_distance_to_PCA_space):
-                predicted_label = j
-                lowest_distance_to_PCA_space = distance_to_PCA_space
 
-        predicted_labels[i] = predicted_label
+    for (label, (mean, basis)) in enumerate(zip(means, projection_basis)):
+        centered_features = np.copy(features)
+        for i in range(n_features):
+            centered_features[i,:] = centered_features[i,:] - mean
+
+        basis = basis[:, dim:].T
+        print 'basis shape : ', basis.shape
+        centered_features = centered_features.T
+        print 'centered_features shape : ', centered_features.shape
+        distances_to_PCA_space = np.linalg.norm(basis.dot(centered_features), axis=0)
+        print 'distances_to_PCA_space shape : ', distances_to_PCA_space.shape
+
+        if label == 0:
+            predicted_labels = np.zeros(n_features)
+            lowest_distance_to_PCA_space = distances_to_PCA_space
+        else:
+            for i in range(n_features):
+                if distances_to_PCA_space[i] < lowest_distance_to_PCA_space[i]:
+                    predicted_labels[i] = label
+                    lowest_distance_to_PCA_space[i] = distances_to_PCA_space[i]
     return predicted_labels
 
 #####################

@@ -11,16 +11,6 @@ def recenter(features):
 
     return mean_feature, centered_features
 
-def compute_projection_on_last_vectors(vector, basis, start_index=0):
-    projection = np.zeros_like(vector)
-    for i in range(start_index, basis.shape[1]):
-        basis_vector = basis[:,i]
-        if basis_vector.shape != vector.shape:
-            raise Exception('basis vector shape ' + str(basis_vector.shape) + ' must be equal to vector shape ' + str(vector.shape))
-        projection += vector.dot(basis_vector) * basis_vector
-    return projection
-
-
 def parties(card, n):
     ensemble = range(1, n+1)
     parties = []

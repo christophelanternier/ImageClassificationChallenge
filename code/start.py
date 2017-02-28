@@ -26,10 +26,12 @@ def predict_with_scattering_kernel_and_SVM():
     lambdas = [0.01]
 
     for (order, scale) in orders_scales:
+        t0 = datetime.now()
         print 'computing features with order ', order, ' and scale ', scale
         train_scattering_features = scattering_kernel(train_images, order, scale).T
         test_scattering_features = scattering_kernel(test_images, order, scale).T
-        print '... done'
+        t1 = datetime.now()
+        print 'done. duration : ', t1 - t0
 
         for _lambda in lambdas:
             t1 = datetime.now()
@@ -55,19 +57,21 @@ def predict_with_scattering_kernel_and_class_PCA():
     orders_scales = [(2, 3)]
 
     for (order, scale) in orders_scales:
+        t0 = datetime.now()
         print 'computing features with order ', order, ' and scale ', scale
         train_scattering_features = scattering_kernel(train_images, order, scale)
         print 'train features shape ', train_scattering_features.shape
         test_scattering_features = scattering_kernel(test_images, order, scale)
         print 'test features shape ', test_scattering_features.shape
-        print '... done'
+        t1 = datetime.now()
+        print 'done. duration : ', t1 - t0
 
         t1 = datetime.now()
         means, projection_basis = compute_class_PCA_linear_space(train_scattering_features, train_labels)
         t2 = datetime.now()
         print 'projection basis computed. durartion : ', t2 - t1
 
-        PCA_space_dimensions = range(5, 30, 4)
+        PCA_space_dimensions = range(5, 30, 1)
         for dimension in PCA_space_dimensions:
             t3 = datetime.now()
             predicted_labels = predict_with_class_PCA_projection(test_scattering_features, means, projection_basis, dimension)
