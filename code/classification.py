@@ -16,21 +16,16 @@ def compute_class_PCA_linear_space(features, labels):
         print 'computing PCA basis for label ', label, '...'
         label_indices = np.where(labels == label)[0]
         label_features = features[label_indices, :]
-        print 'label features shape : ', label_features.shape
         mean, centered_features = recenter(label_features)
         covariance_matrix = np.cov(centered_features.T)
-        print 'covariance_matrix shape : ', covariance_matrix.shape
         eigenvalues, eigenvectors = np.linalg.eigh(covariance_matrix)
         decreasing_eigenvalues_index = eigenvalues.argsort()[::-1]
-        print 'first 5 eigenvalues : ', eigenvalues[decreasing_eigenvalues_index][0:5]
         eigenvectors = eigenvectors[:,decreasing_eigenvalues_index]
-        print 'eigenvectors shape : ', eigenvectors.shape
 
         means.append(mean)
         projection_basis.append(eigenvectors)
         print '...done'
 
-    print 'n means : ', len(means), ' n projection basis ', len(projection_basis)
     return means, projection_basis
 
 def predict_with_class_PCA_projection(features, means, projection_basis, dim):
@@ -42,11 +37,8 @@ def predict_with_class_PCA_projection(features, means, projection_basis, dim):
             centered_features[i,:] = centered_features[i,:] - mean
 
         basis = basis[:, dim:].T
-        print 'basis shape : ', basis.shape
         centered_features = centered_features.T
-        print 'centered_features shape : ', centered_features.shape
         distances_to_PCA_space = np.linalg.norm(basis.dot(centered_features), axis=0)
-        print 'distances_to_PCA_space shape : ', distances_to_PCA_space.shape
 
         if label == 0:
             predicted_labels = np.zeros(n_features)
