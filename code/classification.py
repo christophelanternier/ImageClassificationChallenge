@@ -1,10 +1,59 @@
 import cvxopt
 import numpy as np
 import pandas as pd
+from utils import *
+
+#####################
+# PCA
+####################
+
+def compute_class_PCA_linear_space(features, labels):
+    n_labels = np.unique(labels).size
+    means = []
+    projection_basis = []
+
+    for label in range(n_labels):
+        print 'computing PCA basis for label ', label, '...'
+        label_indices = np.where(labels == label)[0]
+        label_features = features[label_indices, :]
+        mean, centered_features = recenter(label_features)
+        covariance_matrix = np.cov(centered_features.T)
+        eigenvalues, eigenvectors = np.linalg.eigh(covariance_matrix)
+        decreasing_eigenvalues_index = eigenvalues.argsort()[::-1]
+        eigenvectors = eigenvectors[:,decreasing_eigenvalues_index]
+
+        means.append(mean)
+        projection_basis.append(eigenvectors)
+        print '...done'
+
+    return means, projection_basis
+
+def predict_with_class_PCA_projection(features, means, projection_basis, dim):
+    n_features = features.shape[0]
+
+    for (label, (mean, basis)) in enumerate(zip(means, projection_basis)):
+        centered_features = np.copy(features)
+        for i in range(n_features):
+            centered_features[i,:] = centered_features[i,:] - mean
+
+        basis = basis[:, dim:].T
+        centered_features = centered_features.T
+        distances_to_PCA_space = np.linalg.norm(basis.dot(centered_features), axis=0)
+
+        if label == 0:
+            predicted_labels = np.zeros(n_features)
+            lowest_distance_to_PCA_space = distances_to_PCA_space
+        else:
+            for i in range(n_features):
+                if distances_to_PCA_space[i] < lowest_distance_to_PCA_space[i]:
+                    predicted_labels[i] = label
+                    lowest_distance_to_PCA_space[i] = distances_to_PCA_space[i]
+    return predicted_labels
 
 #####################
 #NEW SVM
 ####################
+
 def one_versus_all_SVM(features, labels, _lambda):
     N = len(labels)
     n_labels = len(set(labels))

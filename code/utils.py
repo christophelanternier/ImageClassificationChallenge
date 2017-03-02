@@ -1,18 +1,35 @@
 import numpy as np
 from numpy import power, log, exp, cos, sin, sqrt
+from scipy.signal import fftconvolve
 
-def convolution_2D(image, filter):
-    if image.shape != filter.shape:
-        raise Exception('Image (shape = '+ str(image.shape) + ') and filter (shape = ' + str(filter.shape) + ') must have same shape')
-    zero_padded_image = np.zeros((2 * image.shape[0], 2 * image.shape[1]))
-    zero_padded_image[0:image.shape[0], 0:image.shape[1]] = image
-    zero_padded_filter = np.zeros((2 * filter.shape[0], 2 * filter.shape[1]))
-    zero_padded_filter[0:filter.shape[0], 0:filter.shape[1]] = filter
+def recenter(features):
+    centered_features = np.copy(features)
+    mean_feature = np.mean(features, axis=0)
 
-    filter_fft = np.fft.fft2(zero_padded_filter)
-    image_fft = np.fft.fft2(zero_padded_image)
+    for i in range(features.shape[0]):
+        centered_features[i,:] = features[i,:] - mean_feature
 
-    return np.fft.ifft2(image_fft * filter_fft)[0:image.shape[0], 0:image.shape[1]].real
+    return mean_feature, centered_features
+
+def parties(card, n):
+    ensemble = range(1, n+1)
+    parties = []
+
+    i = 0
+    i_max = 2**n
+
+    while i < i_max:
+        s = []
+        j = 0
+        j_max = n
+        while j < j_max:
+            if (i>>j)&1 == 1:
+                s.append(j+1)
+            j += 1
+        if (len(s) == card):
+            parties.append(s)
+        i += 1
+    return parties
 
 def separate_RGB_images(image, size=1024):
     return image[:size], image[size:2*size], image[2*size:3*size]
@@ -28,90 +45,89 @@ def average_and_subsample(image, size):
 
     return averaged
 
-def generate_haar_wavelets_2D(scale, size=32):
-    normalize_constant = 1.0 / scale**2
+def generate_2D_wavelets(size, type='gabor'):
+    shape = (size, size)
 
-    horizontal_wavelet = np.zeros((size, size))
-    vertical_wavelet = np.zeros((size, size))
-    diagonal_wavelet_1 = np.zeros((size, size))
-    diagonal_wavelet_2 = np.zeros((size, size))
-
-    horizontal_wavelet[0:scale,0:scale/2] = normalize_constant
-    horizontal_wavelet[0:scale,scale/2:scale] = -normalize_constant
-
-    vertical_wavelet = horizontal_wavelet.T
-
-    for i in range(scale):
-        for j in range(scale):
-            if (i < j) or (i == j and i % 2 == 0):
-                diagonal_wavelet_1[i,j] = normalize_constant
-            else:
-                diagonal_wavelet_1[i,j] = -normalize_constant
-
-            if (i + j < scale - 1) or (i + j  == scale - 1 and i % 2 == 0):
-                diagonal_wavelet_2[i,j] = normalize_constant
-            else:
-                diagonal_wavelet_2[i,j] = -normalize_constant
-
-    return [vertical_wavelet, horizontal_wavelet, diagonal_wavelet_1, diagonal_wavelet_2]
+    horizontal_wavelet = np.zeros(shape)
+    vertical_wavelet = np.zeros(shape)
+    diagonal_wavelet_1 = np.zeros(shape)
+    diagonal_wavelet_2 = np.zeros(shape)
 
 
-def generate_gabor_wavelets_2D(scale, size=32):
-    freq = 1.0 / scale
+    if type == 'gabor':
+        freq = 1.0 / size
+        c_x = size / 2
+        c_y = size / 2
+        for i in range(size):
+            for j in range(size):
+                y = (i + 0.5)
+                x = (j + 0.5)
+                shape = exp(-(power(x - c_x, 2) + power(y - c_y, 2)) * freq)
 
-    horizontal_wavelet = np.zeros((size, size))
-    vertical_wavelet = np.zeros((size, size))
-    diagonal_wavelet_1 = np.zeros((size, size))
-    diagonal_wavelet_2 = np.zeros((size, size))
+                vertical_wavelet[i,j] = shape * sin(2 * np.pi * y * freq)
+                horizontal_wavelet[i,j] = shape * sin(2 * np.pi * x * freq)
+                diagonal_wavelet_1[i,j] = shape * sin(2 * np.pi * (x + y - size) * freq)
+                diagonal_wavelet_2[i,j] = shape * sin(2 * np.pi * (y - x) * freq)
 
+        wavelets = [vertical_wavelet, horizontal_wavelet, diagonal_wavelet_1, diagonal_wavelet_2]
 
-    c_x = scale / 2
-    c_y = scale / 2
-    for i in range(scale):
-        for j in range(scale):
-            y = (i + 0.5)
-            x = (j + 0.5)
-            shape = exp(-(power(x - c_x, 2) + power(y - c_y, 2)) * freq)
+        for wavelet in wavelets:
+            wavelet = wavelet / sqrt(np.sum(wavelet * wavelet))
+    elif type == 'haar':
+        normalize_constant = 1.0 / size**2
 
-            vertical_wavelet[i,j] = shape * sin(2 * np.pi * y * freq)
-            horizontal_wavelet[i,j] = shape * sin(2 * np.pi * x * freq)
-            diagonal_wavelet_1[i,j] = shape * sin(2 * np.pi * (x + y - scale) * freq)
-            diagonal_wavelet_2[i,j] = shape * sin(2 * np.pi * (y - x) * freq)
+        horizontal_wavelet[0:size,0:size/2] = normalize_constant
+        horizontal_wavelet[0:size,size/2:size] = -normalize_constant
 
-    wavelets = [vertical_wavelet, horizontal_wavelet, diagonal_wavelet_1, diagonal_wavelet_2]
+        vertical_wavelet = horizontal_wavelet.T
 
-    for wavelet in wavelets:
-        wavelet = wavelet / sqrt(np.sum(wavelet * wavelet))
+        for i in range(size):
+            for j in range(size):
+                if (i < j) or (i == j and i % 2 == 0):
+                    diagonal_wavelet_1[i,j] = normalize_constant
+                else:
+                    diagonal_wavelet_1[i,j] = -normalize_constant
+
+                if (i + j < size - 1) or (i + j  == size - 1 and i % 2 == 0):
+                    diagonal_wavelet_2[i,j] = normalize_constant
+                else:
+                    diagonal_wavelet_2[i,j] = -normalize_constant
+
+        wavelets = [vertical_wavelet, horizontal_wavelet, diagonal_wavelet_1, diagonal_wavelet_2]
+    else:
+        raise Exception('Unknown wavelet type ' + str(type))
 
     return wavelets
 
-def scattering_transform(image, maximum_scale, wavelet_type='gabor'):
-    scale_wavelets = []
-    for j in range(maximum_scale):
-        scale = power(2, (j+1))
-        if wavelet_type == 'gabor':
-            scale_wavelets.append(generate_gabor_wavelets_2D(scale))
-        else:
-            scale_wavelets.append(generate_haar_wavelets_2D(scale))
+def scattering_transform(image, order, maximum_scale, wavelet_type='gabor'):
+    wavelets_banks = []
+    for p in parties(order, maximum_scale):
+        wavelets_bank = []
+        for j in p:
+            wavelet_size = power(2, j)
+            wavelets_bank.append(generate_2D_wavelets(wavelet_size, type=wavelet_type))
+        wavelets_banks.append(wavelets_bank)
 
-    features = []
     subsample_interval = power(2, maximum_scale)
-    RGB = separate_RGB_images(image)
+    subsampled_features = []
 
-    for img in RGB:
+    for img in separate_RGB_images(image):
         img = img.reshape((32,32))
 
-        features_scale_n = [img]
-        for wavelets in scale_wavelets:
-            features_scale_n_plus_1 = []
+        for wavelets_bank in wavelets_banks:
+            features = [[img]]
+            for wavelets in wavelets_bank:
+                new_features = []
 
-            for feature_scale_n in features_scale_n:
-                for wavelet in wavelets:
-                    features_scale_n_plus_1.append(np.abs(convolution_2D(feature_scale_n, wavelet)))
+                for feature in features[-1]:
+                    for wavelet in wavelets:
+                        new_features.append(np.abs(fftconvolve(feature, wavelet, mode='same')))
 
-            for feature_scale_n in features_scale_n:
-                features.append(average_and_subsample(feature_scale_n, subsample_interval).ravel())
+                features.append(new_features)
 
-            feature_scale_n = features_scale_n_plus_1
+            for i in range(len(features)):
+                features_scale_n = features[i]
+                for feature in features_scale_n:
+                    subsampled_features.append(average_and_subsample(feature, subsample_interval).ravel())
 
-    return np.concatenate(features)
+    return np.concatenate(subsampled_features)
