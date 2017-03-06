@@ -13,7 +13,6 @@ def compute_class_PCA_linear_space(features, labels):
     projection_basis = []
 
     for label in range(n_labels):
-        print 'computing PCA basis for label ', label, '...'
         label_indices = np.where(labels == label)[0]
         label_features = features[label_indices, :]
         mean, centered_features = recenter(label_features)
@@ -24,7 +23,6 @@ def compute_class_PCA_linear_space(features, labels):
 
         means.append(mean)
         projection_basis.append(eigenvectors)
-        print '...done'
 
     return means, projection_basis
 
