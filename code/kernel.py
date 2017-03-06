@@ -104,7 +104,7 @@ def scattering_kernel(images, order, scale, wavelet_type='gabor'):
 
     return scattering_features
 
-def first_scattering_kernel(images, wavelet_type='gabor'):
+def first_scattering_kernel(images, wavelet_type='gabor', normalize_features=True):
     scales = [4, 8]
     scale_wavelets = []
     for scale in scales:
@@ -158,4 +158,7 @@ def first_scattering_kernel(images, wavelet_type='gabor'):
                     end_index += feature_scale_n_size
                     scattering_features[i, start_index:end_index] = average_and_subsample(feature_scale_n, subsample_size).ravel()
 
-    return scattering_features
+    if normalize_features:
+        return normalize(scattering_features)
+    else:
+        return scattering_features
