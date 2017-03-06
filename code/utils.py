@@ -1,5 +1,5 @@
 import numpy as np
-from numpy import power, log, exp, cos, sin, sqrt
+from numpy import power, log, exp, cos, sin, sqrt, pi
 from scipy.signal import fftconvolve
 
 def compute_distances_to_mean_features(features, labels):
@@ -81,60 +81,41 @@ def average_and_subsample(image, size):
 
     return averaged
 
-def generate_2D_wavelets(size, type='gabor'):
+def generate_2D_wavelets(size, type='gabor', n_rotations=4):
     shape = (size, size)
 
-    horizontal_wavelet = np.zeros(shape)
-    vertical_wavelet = np.zeros(shape)
-    diagonal_wavelet_1 = np.zeros(shape)
-    diagonal_wavelet_2 = np.zeros(shape)
+    wavelets = [np.zeros(shape) for k in range(n_rotations)]
 
     if type == 'gabor':
         freq = 1.0 / size
         c_x = size / 2
         c_y = size / 2
+        sigma2 = (1.0 * size / 2)**2
         for i in range(size):
             for j in range(size):
                 y = (i + 0.5)
                 x = (j + 0.5)
-                shape = exp(-(power(x - c_x, 2) + power(y - c_y, 2)) * freq)
+                shape = exp(- 0.5 * (power(x - c_x, 2) + power(y - c_y, 2)) / sigma2)
 
-                vertical_wavelet[i,j] = shape * sin(2 * np.pi * y * freq)
-                horizontal_wavelet[i,j] = shape * sin(2 * np.pi * x * freq)
-                diagonal_wavelet_1[i,j] = shape * sin(2 * np.pi * (x + y - size) * freq)
-                diagonal_wavelet_2[i,j] = shape * sin(2 * np.pi * (y - x) * freq)
+                for gamma in range(n_rotations):
+                    angle = pi * gamma / n_rotations
+                    k_x = cos(angle)
+                    k_y = sin(angle)
+                    wavelets[gamma][i,j] = shape * sin(2 * pi * (k_x * (x - c_x) + k_y * (y - c_y)) * freq)
 
-        wavelets = [vertical_wavelet, horizontal_wavelet, diagonal_wavelet_1, diagonal_wavelet_2]
-
-        for wavelet in wavelets:
-            wavelet = wavelet / sqrt(np.sum(wavelet * wavelet))
+        for i in range(len(wavelets)):
+            wavelets[i] = wavelets[i] / np.linalg.norm(wavelets[i])
     elif type == 'haar':
-        normalize_constant = 1.0 / size**2
-
-        horizontal_wavelet[0:size,0:size/2] = normalize_constant
-        horizontal_wavelet[0:size,size/2:size] = -normalize_constant
-
-        vertical_wavelet = horizontal_wavelet.T
-
         for i in range(size):
             for j in range(size):
-                if (i < j) or (i == j and i % 2 == 0):
-                    diagonal_wavelet_1[i,j] = normalize_constant
-                else:
-                    diagonal_wavelet_1[i,j] = -normalize_constant
-
-                if (i + j < size - 1) or (i + j  == size - 1 and i % 2 == 0):
-                    diagonal_wavelet_2[i,j] = normalize_constant
-                else:
-                    diagonal_wavelet_2[i,j] = -normalize_constant
-
-        wavelets = [vertical_wavelet, horizontal_wavelet, diagonal_wavelet_1, diagonal_wavelet_2]
+                for gamma in range(n_rotations):
+                    raise Exception("Not implemented yet")
     else:
         raise Exception('Unknown wavelet type ' + str(type))
 
     return wavelets
 
-def scattering_transform(image, order, maximum_scale, wavelet_type='gabor', normalize_features=True):
+def scattering_transform(image, order, maximum_scale, wavelet_type='gabor', normalize_features=False):
     wavelets_banks = []
     for p in parties(order, maximum_scale):
         wavelets_bank = []
