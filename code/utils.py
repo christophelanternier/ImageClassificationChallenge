@@ -2,6 +2,42 @@ import numpy as np
 from numpy import power, log, exp, cos, sin, sqrt
 from scipy.signal import fftconvolve
 
+def compute_distances_to_mean_features(features, labels):
+    distances = np.zeros(features.shape[0], 10)
+    mean_features = np.zeros(10, features.shape[1])
+    n_nearer_mean = np.zeros(features.shape[0])
+
+    for label in range(10):
+        label_indices = np.where(labels == label)[0]
+        label_features = features[label_indices,:]
+        mean_features[label,:] = np.mean(label_features, axis=0)
+
+    for i in range(features.shape[0]):
+        distance_to_true_label = np.linalg.norm(features[i,:] - label_features[labels[i],:])
+        for label in range(10):
+            distances[i, label] = np.linalg.norm(features[i,:] - label_features[label,:])
+            if (distances[i, label] < distance_to_true_label):
+                n_nearer_mean[i] += 1
+
+    return distances, n_nearer_mean
+
+def normalize(features):
+    max_norm = np.max(np.linalg.norm(features, axis=1))
+    max_norm_inv = 1.0 / max_norm
+    features *= max_norm_inv
+
+    return features
+
+def compute_projection_on_affine_space(vector, point, orthogonal_space_basis):
+    relative_vector = vector - point
+
+    basis_coefficients = orthogonal_space_basis.dot(relative_vector)
+    projection_on_orthogonal_space = np.sum(np.diag(basis_coefficients).dot(orthogonal_space_basis), axis=0)
+
+    projection = vector
+    ## WORK IN PROGRESS
+
+
 def recenter(features):
     centered_features = np.copy(features)
     mean_feature = np.mean(features, axis=0)
@@ -53,7 +89,6 @@ def generate_2D_wavelets(size, type='gabor'):
     diagonal_wavelet_1 = np.zeros(shape)
     diagonal_wavelet_2 = np.zeros(shape)
 
-
     if type == 'gabor':
         freq = 1.0 / size
         c_x = size / 2
@@ -99,7 +134,7 @@ def generate_2D_wavelets(size, type='gabor'):
 
     return wavelets
 
-def scattering_transform(image, order, maximum_scale, wavelet_type='gabor'):
+def scattering_transform(image, order, maximum_scale, wavelet_type='gabor', normalize_features=True):
     wavelets_banks = []
     for p in parties(order, maximum_scale):
         wavelets_bank = []
@@ -109,12 +144,13 @@ def scattering_transform(image, order, maximum_scale, wavelet_type='gabor'):
         wavelets_banks.append(wavelets_bank)
 
     subsample_interval = power(2, maximum_scale)
-    subsampled_features = []
+    output_features = []
 
     for img in separate_RGB_images(image):
         img = img.reshape((32,32))
 
         for wavelets_bank in wavelets_banks:
+            # compute feature corresponding to a p
             features = [[img]]
             for wavelets in wavelets_bank:
                 new_features = []
@@ -125,9 +161,16 @@ def scattering_transform(image, order, maximum_scale, wavelet_type='gabor'):
 
                 features.append(new_features)
 
+            subsampled_features = []
             for i in range(len(features)):
                 features_scale_n = features[i]
                 for feature in features_scale_n:
                     subsampled_features.append(average_and_subsample(feature, subsample_interval).ravel())
 
-    return np.concatenate(subsampled_features)
+            if normalize_features:
+                normalized_features = normalize(np.concatenate(subsampled_features))
+                output_features.append(normalized_features)
+            else:
+                output_features.append(np.concatenate(subsampled_features))
+
+    return np.concatenate(output_features)
