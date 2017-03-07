@@ -2,6 +2,10 @@ import numpy as np
 from numpy import power, log, exp, cos, sin, sqrt
 from scipy.signal import fftconvolve
 
+# Important constants
+images_side = 32
+nbpixels = images_side**2
+
 def recenter(features):
     centered_features = np.copy(features)
     mean_feature = np.mean(features, axis=0)
@@ -12,8 +16,8 @@ def recenter(features):
     return mean_feature, centered_features
 
 def parties(card, n):
-    ensemble = range(1, n+1)
-    parties = []
+    #TODO I need comments from Louis
+    ans = []
 
     i = 0
     i_max = 2**n
@@ -26,13 +30,26 @@ def parties(card, n):
             if (i>>j)&1 == 1:
                 s.append(j+1)
             j += 1
-        if (len(s) == card):
-            parties.append(s)
+        if len(s) == card:
+            ans.append(s)
         i += 1
-    return parties
+    return ans
 
 def separate_RGB_images(image, size=1024):
     return image[:size], image[size:2*size], image[2*size:3*size]
+
+def get_rgb_array(data_line):
+    rgb = separate_RGB_images(data_line)
+    rgbArray = np.zeros((images_side,images_side, 3), 'uint8')
+    for j,color in enumerate(rgb):
+        color = color.reshape((images_side, images_side))
+        rgbArray[..., j] = (color + color.min()) / (color.max() - color.min()) * 256
+
+    return rgbArray
+
+def get_gray_image(rgbArray):
+    return 0.2989 * rgbArray[..., 0] + 0.5870 * rgbArray[..., 1] + 0.1140 * rgbArray[..., 2]
+
 
 def average_and_subsample(image, size):
     N = image.shape[0] / size
@@ -53,7 +70,6 @@ def generate_2D_wavelets(size, type='gabor'):
     diagonal_wavelet_1 = np.zeros(shape)
     diagonal_wavelet_2 = np.zeros(shape)
 
-
     if type == 'gabor':
         freq = 1.0 / size
         c_x = size / 2
@@ -72,7 +88,8 @@ def generate_2D_wavelets(size, type='gabor'):
         wavelets = [vertical_wavelet, horizontal_wavelet, diagonal_wavelet_1, diagonal_wavelet_2]
 
         for wavelet in wavelets:
-            wavelet = wavelet / sqrt(np.sum(wavelet * wavelet))
+            wavelet[:] /= sqrt(np.sum(wavelet * wavelet))
+
     elif type == 'haar':
         normalize_constant = 1.0 / size**2
 
@@ -100,6 +117,7 @@ def generate_2D_wavelets(size, type='gabor'):
     return wavelets
 
 def scattering_transform(image, order, maximum_scale, wavelet_type='gabor'):
+    #TODO I don't get it, I need comments from Louis
     wavelets_banks = []
     for p in parties(order, maximum_scale):
         wavelets_bank = []

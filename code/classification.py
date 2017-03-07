@@ -64,19 +64,13 @@ def one_versus_all_SVM(features, labels, _lambda):
     K = features.T.dot(features)
 
     for label in range(n_labels):
-        one_versus_all_labels = np.zeros(N)
-        for i in range(N):
-            if labels[i] == label:
-                one_versus_all_labels[i] = 1
-            else:
-                one_versus_all_labels[i] = -1
+        one_versus_all_labels = 2 * (labels == label) - 1
         alphas[label, :], bias[label] = train_SVM(K, one_versus_all_labels, _lambda)
         print "classifier for label ", label, " done"
 
     return alphas, bias
 
 def predict_SVM(alphas, bias, features, X):
-    y_pred = np.zeros(alphas.shape[0])
     values_pred = np.zeros((alphas.shape[0],X.shape[1]))
     for k in range(alphas.shape[0]):
         values_pred[k,:] = alphas[k,:].dot(features.T.dot(X))+bias[k]
