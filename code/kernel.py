@@ -153,8 +153,8 @@ def first_scattering_kernel(images, wavelet_type='gabor', normalize_features=Tru
         return scattering_features
 
 
-def linear_kernel(features):
-    return np.dot(features.T,features)
+def linear_kernel(features1,features2):
+    return np.dot(features1.T,features2)
 
 
 def distance_matrix(x, y):
@@ -175,12 +175,12 @@ def distance_matrix(x, y):
 def gaussian(z,sigma):
     return np.exp(-z**2/2/sigma**2)
 
-def gaussian_kernel(features,sigma):
-    return gaussian(distance_matrix(features, features),sigma)
+def gaussian_kernel(features1,features2,sigma):
+    return gaussian(distance_matrix(features1, features2),sigma)
 
 def cauchy(z,sigma):
     return 1 / (1 + z ** 2 / sigma ** 2)
 
-def cauchy_kernel(features, sigma):
-    return cauchy(distance_matrix(features, features),sigma)
+def cauchy_kernel(features1,features2, sigma):
+    return cauchy(distance_matrix(features1,features2),sigma)
 

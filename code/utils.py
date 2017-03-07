@@ -1,5 +1,5 @@
 import numpy as np
-from numpy import power, log, exp, cos, sin, sqrt, pi
+from numpy import power, exp, cos, sin, pi
 from scipy.signal import fftconvolve
 
 # Important constants
