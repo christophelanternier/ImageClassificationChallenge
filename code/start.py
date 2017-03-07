@@ -7,24 +7,21 @@ from datetime import datetime
 
 
 def predict_with_SVM(train_features, train_labels, test_features, test_labels=None, lambdas=[0.01],
-                     filename='../data/Y_te_SVM.csv'):
+                     filename='../data/Y_te_SVM.csv',Kernel=ker.linear_kernel):
     for _lambda in lambdas:
         t1 = datetime.now()
-        alphas, bias = clf.one_versus_all_SVM(train_features.T, train_labels, _lambda=_lambda)
+        alphas, bias = clf.one_versus_all_SVM(train_features, train_labels, _lambda=_lambda,Kernel=Kernel)
         t2 = datetime.now()
         print 'model fitted. duration: ', t2 - t1
-        prediction = clf.predict_SVM(alphas, bias, train_features.T, test_features.T)
+        predicted_labels = clf.predict_SVM(alphas, bias, train_features, test_features,Kernel=Kernel)
         t3 = datetime.now()
         print 'prediction done. duration: ', t3 - t2
 
         if test_labels is not None:
-            well_classified = 0
-            for i in range(len(prediction)):
-                if prediction[i] == test_labels[i]:
-                    well_classified += 1
-            print 'lambda = ', _lambda, ' rate = ', float(well_classified) / len(prediction)
+            well_classified = (predicted_labels == test_labels).sum()
+            print 'lambda = ', _lambda, ' rate = ', float(well_classified) / len(predicted_labels)
         else:
-            DF = pd.DataFrame(data=pd.Series(prediction), columns=['Prediction'])
+            DF = pd.DataFrame(data=pd.Series(predicted_labels), columns=['Prediction'])
             DF.index += 1
             DF.to_csv(filename, index=True, index_label='Id', sep=',')
 
@@ -44,10 +41,7 @@ def predict_with_class_PCA(train_features, train_labels, test_features, test_lab
         print 'labels predicted. duration: ', t4 - t3
 
         if test_labels is not None:
-            well_classified = 0
-            for i in range(predicted_labels.size):
-                if predicted_labels[i] == test_labels[i]:
-                    well_classified += 1
+            well_classified = (predicted_labels == test_labels).sum()
             print 'dimension = ', dimension, ' rate = ', float(well_classified) / predicted_labels.size
         else:
             DF = pd.DataFrame(data=pd.Series(predicted_labels), columns=['Prediction'])
