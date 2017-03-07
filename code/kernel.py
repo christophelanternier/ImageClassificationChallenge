@@ -97,15 +97,11 @@ def scattering_kernel(images, order, scale, wavelet_type='gabor'):
 
     return scattering_features
 
-def first_scattering_kernel(images, wavelet_type='gabor'):
-    scales = [4, 8]
+def first_scattering_kernel(images, wavelet_type='gabor', normalize_features=True, image_subsample_size = 4, subsample_sizes=[2, 4], scales=[4, 8]):
     scale_wavelets = []
     for scale in scales:
         scale_wavelets.append(generate_2D_wavelets(scale, type=wavelet_type))
 
-    subsample_sizes = [2, 4]
-
-    image_subsample_size = 4
     subsampled_image_size = nbpixels / image_subsample_size**2
 
     # compute size of scattering transform
@@ -151,7 +147,10 @@ def first_scattering_kernel(images, wavelet_type='gabor'):
                     end_index += feature_scale_n_size
                     scattering_features[i, start_index:end_index] = average_and_subsample(feature_scale_n, subsample_size).ravel()
 
-    return scattering_features
+    if normalize_features:
+        return normalize(scattering_features)
+    else:
+        return scattering_features
 
 
 def linear_kernel(features):
