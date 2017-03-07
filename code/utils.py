@@ -6,6 +6,23 @@ from scipy.signal import fftconvolve
 images_side = 32
 nbpixels = images_side**2
 
+
+def read_image_file(filename,nlines=10000):
+    """Reads the image datasets.
+    Faster than genfromtxt because does not infer the type.
+    """
+    import csv
+    xcsv = csv.reader(open(filename))
+    countline = 0
+    Xtr = []
+    for row in xcsv:
+        countline += 1
+        if countline > nlines:
+            break
+        Xtr.append(np.array(map(float, row[:-1])))
+    return np.array(Xtr)
+
+
 def compute_distances_to_mean_features(features, labels):
     distances = np.zeros(features.shape[0], 10)
     mean_features = np.zeros(10, features.shape[1])
