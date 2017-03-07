@@ -75,8 +75,9 @@ def one_versus_all_SVM(features, labels, _lambda, Kernel=kernel.linear_kernel):
 
 def predict_SVM(alphas, bias, train_features, predict_features,Kernel=kernel.linear_kernel):
     values_pred = np.zeros((alphas.shape[0],predict_features.shape[0]))
+    K = Kernel(predict_features,train_features)
     for k in range(alphas.shape[0]):
-        values_pred[k,:] = np.dot(Kernel(predict_features,train_features),alphas[k,:]) + bias[k]
+        values_pred[k,:] = np.dot(K, alphas[k,:]) + bias[k]
     return np.argmax(values_pred, axis=0)
 
 def train_SVM(K, y, _lambda):
