@@ -1,7 +1,8 @@
 import cvxopt
 import numpy as np
 import pandas as pd
-from utils import *
+import utils
+import kernel
 
 #####################
 # PCA
@@ -13,10 +14,9 @@ def compute_class_PCA_linear_space(features, labels):
     projection_basis = []
 
     for label in range(n_labels):
-        print 'computing PCA basis for label ', label, '...'
         label_indices = np.where(labels == label)[0]
         label_features = features[label_indices, :]
-        mean, centered_features = recenter(label_features)
+        mean, centered_features = utils.recenter(label_features)
         covariance_matrix = np.cov(centered_features.T)
         eigenvalues, eigenvectors = np.linalg.eigh(covariance_matrix)
         decreasing_eigenvalues_index = eigenvalues.argsort()[::-1]
@@ -24,7 +24,6 @@ def compute_class_PCA_linear_space(features, labels):
 
         means.append(mean)
         projection_basis.append(eigenvectors)
-        print '...done'
 
     return means, projection_basis
 
@@ -54,32 +53,31 @@ def predict_with_class_PCA_projection(features, means, projection_basis, dim):
 #NEW SVM
 ####################
 
-def one_versus_all_SVM(features, labels, _lambda):
+def one_versus_all_SVM(features, labels, _lambda, Kernel=kernel.linear_kernel):
+    """Return the solution of the kernel SVM convex optimization problem.
+    Choose a kernel as a function of features. This means that you have to
+    specify the variance of the gaussian beforehand.
+    """
     N = len(labels)
     n_labels = len(set(labels))
     alphas = np.zeros((n_labels, N))
     bias = np.zeros(n_labels)
 
-    #Linear Kernel:
-    K = features.T.dot(features)
+    # Kernel matrix
+    K = Kernel(features,features)
 
     for label in range(n_labels):
-        one_versus_all_labels = np.zeros(N)
-        for i in range(N):
-            if labels[i] == label:
-                one_versus_all_labels[i] = 1
-            else:
-                one_versus_all_labels[i] = -1
+        one_versus_all_labels = 2 * (labels == label) - 1
         alphas[label, :], bias[label] = train_SVM(K, one_versus_all_labels, _lambda)
         print "classifier for label ", label, " done"
 
     return alphas, bias
 
-def predict_SVM(alphas, bias, features, X):
-    y_pred = np.zeros(alphas.shape[0])
-    values_pred = np.zeros((alphas.shape[0],X.shape[1]))
+def predict_SVM(alphas, bias, train_features, predict_features,Kernel=kernel.linear_kernel):
+    values_pred = np.zeros((alphas.shape[0],predict_features.shape[0]))
+    K = Kernel(predict_features,train_features)
     for k in range(alphas.shape[0]):
-        values_pred[k,:] = alphas[k,:].dot(features.T.dot(X))+bias[k]
+        values_pred[k,:] = np.dot(K, alphas[k,:]) + bias[k]
     return np.argmax(values_pred, axis=0)
 
 def train_SVM(K, y, _lambda):

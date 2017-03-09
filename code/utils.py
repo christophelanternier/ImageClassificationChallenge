@@ -1,6 +1,63 @@
 import numpy as np
-from numpy import power, log, exp, cos, sin, sqrt
+from numpy import power, exp, cos, sin, pi
 from scipy.signal import fftconvolve
+
+# Important constants
+images_side = 32
+nbpixels = images_side**2
+
+
+def read_image_file(filename,nlines=10000):
+    """Reads the image datasets.
+    Faster than genfromtxt because does not infer the type.
+    """
+    import csv
+    xcsv = csv.reader(open(filename))
+    countline = 0
+    Xtr = []
+    for row in xcsv:
+        countline += 1
+        if countline > nlines:
+            break
+        Xtr.append(np.array(map(float, row[:-1])))
+    return np.array(Xtr)
+
+
+def compute_distances_to_mean_features(features, labels):
+    distances = np.zeros(features.shape[0], 10)
+    mean_features = np.zeros(10, features.shape[1])
+    n_nearer_mean = np.zeros(features.shape[0])
+
+    for label in range(10):
+        label_indices = np.where(labels == label)[0]
+        label_features = features[label_indices,:]
+        mean_features[label,:] = np.mean(label_features, axis=0)
+
+    for i in range(features.shape[0]):
+        distance_to_true_label = np.linalg.norm(features[i,:] - label_features[labels[i],:])
+        for label in range(10):
+            distances[i, label] = np.linalg.norm(features[i,:] - label_features[label,:])
+            if (distances[i, label] < distance_to_true_label):
+                n_nearer_mean[i] += 1
+
+    return distances, n_nearer_mean
+
+def normalize(features):
+    max_norm = np.max(np.linalg.norm(features, axis=1))
+    max_norm_inv = 1.0 / max_norm
+    features *= max_norm_inv
+
+    return features
+
+def compute_projection_on_affine_space(vector, point, orthogonal_space_basis):
+    relative_vector = vector - point
+
+    basis_coefficients = orthogonal_space_basis.dot(relative_vector)
+    projection_on_orthogonal_space = np.sum(np.diag(basis_coefficients).dot(orthogonal_space_basis), axis=0)
+
+    projection = vector
+    ## WORK IN PROGRESS
+
 
 def recenter(features):
     centered_features = np.copy(features)
@@ -12,8 +69,8 @@ def recenter(features):
     return mean_feature, centered_features
 
 def parties(card, n):
-    ensemble = range(1, n+1)
-    parties = []
+    #TODO I need comments from Louis
+    ans = []
 
     i = 0
     i_max = 2**n
@@ -26,13 +83,26 @@ def parties(card, n):
             if (i>>j)&1 == 1:
                 s.append(j+1)
             j += 1
-        if (len(s) == card):
-            parties.append(s)
+        if len(s) == card:
+            ans.append(s)
         i += 1
-    return parties
+    return ans
 
 def separate_RGB_images(image, size=1024):
     return image[:size], image[size:2*size], image[2*size:3*size]
+
+def get_rgb_array(data_line):
+    rgb = separate_RGB_images(data_line)
+    rgbArray = np.zeros((images_side,images_side, 3), 'uint8')
+    for j,color in enumerate(rgb):
+        color = color.reshape((images_side, images_side))
+        rgbArray[..., j] = (color + color.min()) / (color.max() - color.min()) * 256
+
+    return rgbArray
+
+def get_gray_image(rgbArray):
+    return 0.2989 * rgbArray[..., 0] + 0.5870 * rgbArray[..., 1] + 0.1140 * rgbArray[..., 2]
+
 
 def average_and_subsample(image, size):
     N = image.shape[0] / size
@@ -45,61 +115,43 @@ def average_and_subsample(image, size):
 
     return averaged
 
-def generate_2D_wavelets(size, type='gabor'):
+def generate_2D_wavelets(size, type='gabor', n_rotations=4):
     shape = (size, size)
 
-    horizontal_wavelet = np.zeros(shape)
-    vertical_wavelet = np.zeros(shape)
-    diagonal_wavelet_1 = np.zeros(shape)
-    diagonal_wavelet_2 = np.zeros(shape)
-
+    wavelets = [np.zeros(shape) for k in range(n_rotations)]
 
     if type == 'gabor':
         freq = 1.0 / size
         c_x = size / 2
         c_y = size / 2
+        sigma2 = (1.0 * size / 2)**2
         for i in range(size):
             for j in range(size):
                 y = (i + 0.5)
                 x = (j + 0.5)
-                shape = exp(-(power(x - c_x, 2) + power(y - c_y, 2)) * freq)
+                shape = exp(- 0.5 * (power(x - c_x, 2) + power(y - c_y, 2)) / sigma2)
 
-                vertical_wavelet[i,j] = shape * sin(2 * np.pi * y * freq)
-                horizontal_wavelet[i,j] = shape * sin(2 * np.pi * x * freq)
-                diagonal_wavelet_1[i,j] = shape * sin(2 * np.pi * (x + y - size) * freq)
-                diagonal_wavelet_2[i,j] = shape * sin(2 * np.pi * (y - x) * freq)
+                for gamma in range(n_rotations):
+                    angle = pi * gamma / n_rotations
+                    k_x = cos(angle)
+                    k_y = sin(angle)
+                    wavelets[gamma][i,j] = shape * sin(2 * pi * (k_x * (x - c_x) + k_y * (y - c_y)) * freq)
 
-        wavelets = [vertical_wavelet, horizontal_wavelet, diagonal_wavelet_1, diagonal_wavelet_2]
+        for i in range(len(wavelets)):
+            wavelets[i] /= np.linalg.norm(wavelets[i])
 
-        for wavelet in wavelets:
-            wavelet = wavelet / sqrt(np.sum(wavelet * wavelet))
     elif type == 'haar':
-        normalize_constant = 1.0 / size**2
-
-        horizontal_wavelet[0:size,0:size/2] = normalize_constant
-        horizontal_wavelet[0:size,size/2:size] = -normalize_constant
-
-        vertical_wavelet = horizontal_wavelet.T
-
         for i in range(size):
             for j in range(size):
-                if (i < j) or (i == j and i % 2 == 0):
-                    diagonal_wavelet_1[i,j] = normalize_constant
-                else:
-                    diagonal_wavelet_1[i,j] = -normalize_constant
-
-                if (i + j < size - 1) or (i + j  == size - 1 and i % 2 == 0):
-                    diagonal_wavelet_2[i,j] = normalize_constant
-                else:
-                    diagonal_wavelet_2[i,j] = -normalize_constant
-
-        wavelets = [vertical_wavelet, horizontal_wavelet, diagonal_wavelet_1, diagonal_wavelet_2]
+                for gamma in range(n_rotations):
+                    raise Exception("Not implemented yet")
     else:
         raise Exception('Unknown wavelet type ' + str(type))
 
     return wavelets
 
-def scattering_transform(image, order, maximum_scale, wavelet_type='gabor'):
+def scattering_transform(image, order, maximum_scale, wavelet_type='gabor', normalize_features=False):
+    #TODO I don't get it, I need comments from Louis
     wavelets_banks = []
     for p in parties(order, maximum_scale):
         wavelets_bank = []
@@ -109,12 +161,13 @@ def scattering_transform(image, order, maximum_scale, wavelet_type='gabor'):
         wavelets_banks.append(wavelets_bank)
 
     subsample_interval = power(2, maximum_scale)
-    subsampled_features = []
+    output_features = []
 
     for img in separate_RGB_images(image):
         img = img.reshape((32,32))
 
         for wavelets_bank in wavelets_banks:
+            # compute feature corresponding to a p
             features = [[img]]
             for wavelets in wavelets_bank:
                 new_features = []
@@ -125,9 +178,16 @@ def scattering_transform(image, order, maximum_scale, wavelet_type='gabor'):
 
                 features.append(new_features)
 
+            subsampled_features = []
             for i in range(len(features)):
                 features_scale_n = features[i]
                 for feature in features_scale_n:
                     subsampled_features.append(average_and_subsample(feature, subsample_interval).ravel())
 
-    return np.concatenate(subsampled_features)
+            if normalize_features:
+                normalized_features = normalize(np.concatenate(subsampled_features))
+                output_features.append(normalized_features)
+            else:
+                output_features.append(np.concatenate(subsampled_features))
+
+    return np.concatenate(output_features)

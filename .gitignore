@@ -3,3 +3,6 @@
 *.swp
 *.swo
 code/.ipynb_checkpoints/*
+data/*
+.DS_Store
+.idea/*
