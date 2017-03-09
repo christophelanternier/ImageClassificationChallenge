@@ -231,7 +231,7 @@ def test_one_versus_all_logistic_classifier(alphas, train_features, test_feature
         print "error rate on test : ", error_rate / N
 
 ###########################
-#ALL SVM RELATED FUNCTIONS#
+#OLD SVM
 ###########################
 def dual_objective_function(y,X,x):
     return sum(x)-0.5*np.linalg.norm(sum(np.multiply(x,np.multiply(y,X)).T))**2
@@ -357,5 +357,7 @@ def SVM_classifier(X, y, primal=True):
     y_pred = X.T.dot(x[:d])
 
     return y_pred
-
-    # faire une fonction qui permet de sortir x
+    
+###########################
+#OLD SVM
+###########################
