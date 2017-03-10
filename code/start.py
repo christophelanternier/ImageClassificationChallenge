@@ -49,24 +49,26 @@ def predict_with_class_PCA(train_features, train_labels, test_features, test_lab
             DF.to_csv(filename, index=True, index_label='Id', sep=',')
 
 
-# Xtr = genfromtxt('../data/Xtr.csv', delimiter=',')
-# Xte = genfromtxt('../data/Xte.csv', delimiter=',')
-# Ytr = genfromtxt('../data/Ytr.csv', delimiter=',')
-#
-# Xtr = np.delete(Xtr, 3072, axis=1)
-# Xte = np.delete(Xte, 3072, axis=1)
-# Ytr = Ytr[1:, 1]
-#
-# N_train = 3000
-#
-# train_images = Xtr  # [:N_train,:]
-# train_labels = Ytr  # [:N_train]
-# test_images = Xte  # Xtr[N_train:,:]
-# test_labels = None  # Ytr[N_train:]
-#
-# train_features = ker.first_scattering_kernel(train_images)
-# test_features = ker.first_scattering_kernel(test_images)
-#
-# predict_with_SVM(train_features, train_labels, test_features, test_labels, lambdas=[0.00003],
-#                  filename='../data/Y_te_scattering_lambda_3_10-5.csv')
+Xtr = genfromtxt('../data/Xtr.csv', delimiter=',')
+Xte = genfromtxt('../data/Xte.csv', delimiter=',')
+Ytr = genfromtxt('../data/Ytr.csv', delimiter=',')
+
+Xtr = np.delete(Xtr, 3072, axis=1)
+Xte = np.delete(Xte, 3072, axis=1)
+Ytr = Ytr[1:, 1]
+
+N_train = 3000
+
+train_images = Xtr  # [:N_train,:]
+train_labels = Ytr  # [:N_train]
+test_images = Xte  # Xtr[N_train:,:]
+test_labels = None  # Ytr[N_train:]
+
+train_features = ker.first_scattering_kernel(train_images)
+test_features = ker.first_scattering_kernel(test_images)
+
+predict_with_SVM(train_features, train_labels, test_features, test_labels,
+                 lambdas=[0.001],
+                 Kernel=ker.get_kernel(type='gaussian',sigma=.3),
+                 filename='Yte.csv')
 # predict_with_class_PCA(train_features, train_labels, test_features, test_labels)
